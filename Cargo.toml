@@ -1,0 +1,10 @@
+[package]
+name = "bevy_renderdoc_capture"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+renderdoc = "0.12"
+bevy = { version = "0.15", default-features = false, features = [
+    "bevy_render",
+] }
