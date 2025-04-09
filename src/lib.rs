@@ -53,7 +53,8 @@ type RenderDoc = renderdoc::RenderDoc<renderdoc::V100>;
 
 #[derive(Resource)]
 struct RenderDocData {
-    is_capture_active: Arc<AtomicBool>,
+    capture_requested: Arc<AtomicBool>,
+    is_capture_active: bool,
     api: Mutex<RenderDoc>,
 }
 
@@ -143,7 +144,8 @@ impl Plugin for RenderDocPlugin {
         let is_capture_active = Arc::new(AtomicBool::new(false));
 
         sub_app.insert_resource(RenderDocData {
-            is_capture_active,
+            capture_requested: is_capture_active,
+            is_capture_active: false,
             api: Mutex::new(renderdoc),
         });
 
@@ -162,7 +164,11 @@ impl Plugin for RenderDocPlugin {
 
 /// Default system for starting a capture, based on a key press.
 fn start_capture(mut renderdoc: ResMut<RenderDocData>) {
-    if renderdoc.is_capture_active.load(Ordering::SeqCst) {
+    if renderdoc
+        .capture_requested
+        .fetch_and(false, Ordering::SeqCst)
+    {
+        renderdoc.is_capture_active = true;
         let api = renderdoc.api.get_mut().unwrap();
         api.start_frame_capture(null(), null());
     }
@@ -171,12 +177,11 @@ fn start_capture(mut renderdoc: ResMut<RenderDocData>) {
 /// Post-render disable frame capture if it was on.
 fn after_render_end_capture(mut renderdoc: ResMut<RenderDocData>) {
     // Check if the capture is active, and disable it if it is.
-    if !renderdoc
-        .is_capture_active
-        .fetch_and(false, Ordering::SeqCst)
-    {
+    if !renderdoc.is_capture_active {
         return;
     }
+
+    renderdoc.is_capture_active = false;
 
     let api = renderdoc.api.get_mut().unwrap();
     api.end_frame_capture(null(), null());
