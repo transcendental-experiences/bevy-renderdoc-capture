@@ -212,6 +212,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "bevy-renderdoc-capture"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "renderdoc",
+]
+
+[[package]]
 name = "bevy_a11y"
 version = "0.15.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -703,14 +711,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
-]
-
-[[package]]
-name = "bevy_renderdoc_capture"
-version = "0.1.0"
-dependencies = [
- "bevy",
- "renderdoc",
 ]
 
 [[package]]
