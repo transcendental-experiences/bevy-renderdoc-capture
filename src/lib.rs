@@ -1,19 +1,122 @@
+//! Provides a plugin to integrate renderdoc capture directly into Bevy's rendering engine.
+//! # Examples
+//! ## No configuration
+//! With no configuration, a default hook is added that allows you to press `F10` to trigger a frame capture.
+//!
+//! ```no_run
+//! # use bevy::prelude::*;
+//! # use bevy_renderdoc_capture::*;
+//! # let mut app = App::new();
+//! app.add_plugins(RenderDocPlugin::default());
+//! ```
+//!
+//! ## With selected key code
+//! Alternatively, you can configure which key the hook uses:
+//!
+//! ```no_run
+//! # use bevy::prelude::*;
+//! # use bevy_renderdoc_capture::*;
+//! # let mut app = App::new();
+//! app.add_plugins(RenderDocPlugin::new_with_trigger_key(KeyCode::F12));
+//! ```
+//!
+//! ## Without default hook
+//! Or you can bring your own hook using [RenderDocTrigger].
+//!
+//! ```no_run
+//! # use bevy::prelude::*;
+//! # use bevy_renderdoc_capture::*;
+//! # let mut app = App::new();
+//! app.add_plugins(RenderDocPlugin::new_without_trigger());
+//! app.add_systems(Update, my_system);
+//!
+//! // ...
+//!
+//! pub fn my_system(trigger: Res<RenderDocTrigger>) {
+//!
+//!     // Do some checks...
+//!
+//!     trigger.capture();
+//! }
+//! ```
+//!
+#![deny(missing_docs, reason = "Document your public APIs!!!")]
+
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::{ptr::null, sync::Mutex};
 
 use bevy::prelude::*;
-use bevy::render::{Extract, ExtractSchedule, Render, RenderApp, RenderSet};
+use bevy::render::{ExtractSchedule, Render, RenderApp, RenderSet};
 
 type RenderDoc = renderdoc::RenderDoc<renderdoc::V100>;
 
 #[derive(Resource)]
 struct RenderDocData {
+    capture_requested: Arc<AtomicBool>,
     is_capture_active: bool,
     api: Mutex<RenderDoc>,
 }
 
-pub struct RenderdocPlugin;
+/// The RenderDoc capture plugin.
+pub struct RenderDocPlugin {
+    key_code: Option<KeyCode>,
+}
 
-impl Plugin for RenderdocPlugin {
+/// Resource for triggering a renderdoc capture using [RenderDocTrigger::capture].
+///
+/// Triggers are handled during [ExtractSchedule] and you should enable capture prior.
+///
+/// By default, a hook is registered that triggers a renderdoc capture upon pressing F10.
+///
+/// # Example
+/// ```no_run
+/// # use bevy::prelude::*;
+/// # use bevy_renderdoc_capture::*;
+/// pub fn my_system(trigger: Res<RenderDocTrigger>) {
+///
+///     // Do some checks...
+///
+///     trigger.capture();
+/// }
+/// ```
+#[derive(Resource)]
+pub struct RenderDocTrigger {
+    is_capture_active: Arc<AtomicBool>,
+}
+
+impl RenderDocTrigger {
+    /// Trigger capturing the next frame for RenderDoc.
+    ///
+    /// This operation cannot be undone.
+    pub fn capture(&self) {
+        self.is_capture_active.store(true, Ordering::SeqCst);
+    }
+}
+
+impl Default for RenderDocPlugin {
+    fn default() -> Self {
+        Self {
+            key_code: Some(KeyCode::F10),
+        }
+    }
+}
+
+impl RenderDocPlugin {
+    /// Create a new RenderDocPlugin with a specific key code set as the trigger key, instead of the default F10.
+    pub fn new_with_trigger_key(key_code: KeyCode) -> Self {
+        Self {
+            key_code: Some(key_code),
+        }
+    }
+
+    /// Creates a new RenderDocPlugin with no default hook. [RenderDocTrigger] must be used manually to trigger a capture.
+    pub fn new_without_trigger() -> Self {
+        Self { key_code: None }
+    }
+}
+
+impl Plugin for RenderDocPlugin {
     fn build(&self, app: &mut bevy::app::App) {
         let renderdoc = match RenderDoc::new() {
             Ok(r) => r,
@@ -37,28 +140,43 @@ impl Plugin for RenderdocPlugin {
                 .after(RenderSet::Render)
                 .before(RenderSet::Cleanup),
         );
+
+        let is_capture_active = Arc::new(AtomicBool::new(false));
+
         sub_app.insert_resource(RenderDocData {
+            capture_requested: is_capture_active,
             is_capture_active: false,
             api: Mutex::new(renderdoc),
         });
+
+        if let Some(key_code) = self.key_code {
+            app.add_systems(
+                PostUpdate,
+                move |keys: Res<ButtonInput<KeyCode>>, trigger: Res<RenderDocTrigger>| {
+                    if keys.just_pressed(key_code) {
+                        trigger.capture();
+                    }
+                },
+            );
+        }
     }
 }
 
-fn start_capture(
-    keyboard: Extract<Res<ButtonInput<KeyCode>>>,
-    mut renderdoc: ResMut<RenderDocData>,
-) {
-    if !keyboard.just_pressed(KeyCode::F10) {
-        return;
+/// Default system for starting a capture, based on a key press.
+fn start_capture(mut renderdoc: ResMut<RenderDocData>) {
+    if renderdoc
+        .capture_requested
+        .fetch_and(false, Ordering::SeqCst)
+    {
+        renderdoc.is_capture_active = true;
+        let api = renderdoc.api.get_mut().unwrap();
+        api.start_frame_capture(null(), null());
     }
-
-    renderdoc.is_capture_active = true;
-
-    let api = renderdoc.api.get_mut().unwrap();
-    api.start_frame_capture(null(), null());
 }
 
+/// Post-render disable frame capture if it was on.
 fn after_render_end_capture(mut renderdoc: ResMut<RenderDocData>) {
+    // Check if the capture is active, and disable it if it is.
     if !renderdoc.is_capture_active {
         return;
     }
