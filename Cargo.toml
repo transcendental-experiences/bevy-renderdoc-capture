@@ -2,6 +2,13 @@
 name = "bevy-renderdoc-capture"
 version = "0.1.0"
 edition = "2024"
+rust-version = "1.85.0"
+
+categories = ["rendering", "game-development"]
+keywords = ["renderdoc", "bevy"]
+license = "MIT OR Apache-2.0"
+description = "Simple module for adding a RenderDoc application capture hook to Bevy apps."
+repository = "https://github.com/transcendental-experiences/bevy-renderdoc-capture"
 
 [dependencies]
 renderdoc = "0.12"

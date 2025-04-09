@@ -1,4 +1,4 @@
-# bevy_renderdoc_capture
+# bevy-renderdoc-capture
 
 This is a simple [Bevy](https://bevyengine.org/) module to add a custom keybind for doing RenderDoc captures around Bevy's renderer. Why would you need this? When I was messing with VR stuff, RenderDoc couldn't figure out the frame boundaries itself.
 
