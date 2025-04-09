@@ -62,7 +62,7 @@ pub struct RenderDocPlugin {
     key_code: Option<KeyCode>,
 }
 
-/// Resource for triggering a renderdoc capture using [RenderdocTrigger::capture]
+/// Resource for triggering a renderdoc capture using [RenderDocTrigger::capture]
 /// Triggers are handled during [ExtractSchedule] and you should enable capture prior.
 ///
 /// By default, a hook is registered that triggers a renderdoc capture upon pressing F10.
