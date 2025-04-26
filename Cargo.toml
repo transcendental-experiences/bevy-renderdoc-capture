@@ -1,6 +1,6 @@
 [package]
 name = "bevy-renderdoc-capture"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 rust-version = "1.85.0"
 
@@ -11,7 +11,8 @@ description = "Simple module for adding a RenderDoc application capture hook to 
 repository = "https://github.com/transcendental-experiences/bevy-renderdoc-capture"
 
 [dependencies]
-renderdoc = "0.12"
-bevy = { version = "0.15", default-features = false, features = [
+renderdoc = "0.12.0"
+bevy = { version = "0.16.0", default-features = false, features = [
+    "bevy_log",
     "bevy_render",
 ] }
